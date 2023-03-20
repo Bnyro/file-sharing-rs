@@ -13,7 +13,6 @@ use std::{
     collections::HashMap,
     fs::{create_dir_all, read_dir},
     net::SocketAddr,
-    path::PathBuf,
 };
 use template::parse_template;
 use tokio::{fs::File, io::AsyncWriteExt};
@@ -88,39 +87,33 @@ async fn upload(mut multipart: Multipart) -> Redirect {
 async fn get_upload(Path(hash): Path<String>) -> Html<String> {
     let files = read_dir(FILESDIR).expect("Unable to read directory!");
 
-    let mut file_name: String = String::from("");
-    let mut file: Option<PathBuf> = None;
-
     for f in files {
-        if let Ok(f) = f {
-            let name = f.file_name();
-            let curr_file_name = name.to_str().unwrap();
-            let file_name_parts = curr_file_name.split_once(DELIMITER).unwrap();
-            if file_name_parts.0 == hash {
-                file_name = curr_file_name.to_string();
-                file = Some(f.path());
-                break;
-            }
-        }
-    }
+        let file = skip_fail!(f);
+        let name = file.file_name();
+        let curr_file_name = name.to_str().unwrap();
+        let file_name_parts = curr_file_name.split_once(DELIMITER).unwrap();
+        if file_name_parts.0 != hash {
+            continue;
+        };
 
-    if file.is_none() {
+        let file_name = curr_file_name.to_string();
+
+        let mut arguments: HashMap<&str, &str> = HashMap::new();
+        arguments.insert("path", file_name.as_str());
+        arguments.insert("name", file_name.split_once(DELIMITER).unwrap().1);
+
         return Html(parse_template(
-            include_str!("../templates/notfound.html"),
-            "Not found",
-            HashMap::new(),
+            include_str!("../templates/file.html"),
+            arguments.get("name").unwrap(),
+            arguments,
         ));
     }
 
-    let mut arguments: HashMap<&str, &str> = HashMap::new();
-    arguments.insert("path", file_name.as_str());
-    arguments.insert("name", file_name.split_once(DELIMITER).unwrap().1);
-
-    Html(parse_template(
-        include_str!("../templates/file.html"),
-        arguments.get("name").unwrap(),
-        arguments,
-    ))
+    return Html(parse_template(
+        include_str!("../templates/notfound.html"),
+        "Not found",
+        HashMap::new(),
+    ));
 }
 
 async fn get_file(Path(name): Path<String>) -> impl IntoResponse {
