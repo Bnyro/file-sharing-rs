@@ -13,6 +13,7 @@ use include_dir::{include_dir, Dir};
 use server::{serve_static, static_response};
 use std::{
     collections::HashMap,
+    env,
     fs::{create_dir_all, read_dir},
     net::SocketAddr,
 };
@@ -33,6 +34,11 @@ static DATE_FORMAT: &str = "%d.%m.%Y, %H:%M";
 async fn main() {
     let _ = create_dir_all(FILESDIR);
 
+    let port = env::var("PORT")
+        .unwrap_or(String::from("3000"))
+        .parse()
+        .expect("Invalid port!");
+
     let app = Router::new()
         .route("/", get(root))
         .route("/static/:name", get(get_static))
@@ -43,7 +49,7 @@ async fn main() {
         .route("/delete/:name", get(delete_file))
         .layer(DefaultBodyLimit::max(SIZELIMIT * 1024 * 1024));
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    let addr = SocketAddr::from(([127, 0, 0, 1], port));
     println!("Listening on http://{}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
