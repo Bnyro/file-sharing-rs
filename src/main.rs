@@ -157,7 +157,7 @@ async fn get_upload(Path(hash): Path<String>) -> Html<String> {
 
 async fn delete_file(Path(name): Path<String>) -> Redirect {
     let _ = remove_file(format!("{}/{}", FILESDIR, name)).await;
-    return Redirect::permanent("./");
+    return Redirect::permanent("./../");
 }
 
 async fn get_file(Path(name): Path<String>) -> impl IntoResponse {
