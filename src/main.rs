@@ -61,7 +61,7 @@ async fn main() {
 async fn root() -> Html<String> {
     Html(parse_template(
         get_template("home.html"),
-        "File sharing with ease",
+        "Share files",
         HashMap::new(),
     ))
 }
