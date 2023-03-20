@@ -33,6 +33,7 @@ a, .button, input[type=file]::file-selector-button {
     border-radius: 1rem;
     cursor: pointer;
     background-color: transparent;
+    transition: all 200ms ease-in-out;
 }
 
 a:hover {
@@ -60,6 +61,11 @@ li {
 
 .button, input[type=file]::file-selector-button {
     border: 2px solid var(--accent);
+}
+
+.button:hover, input[type=file]::file-selector-button:hover {
+    background-color: var(--accent);
+    color: var(--bg);
 }
 
 input[type=file] {
