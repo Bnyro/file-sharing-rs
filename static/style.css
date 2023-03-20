@@ -26,11 +26,13 @@ body {
     align-items: center;
 }
 
-a {
+a, .button, input[type=file]::file-selector-button {
     text-decoration: none;
     color: var(--accent);
     padding: 0.5rem 1rem;
     border-radius: 1rem;
+    cursor: pointer;
+    background-color: transparent;
 }
 
 a:hover {
@@ -56,8 +58,16 @@ li {
      margin-top: 0.6rem;
 }
 
-.button {
+.button, input[type=file]::file-selector-button {
     border: 2px solid var(--accent);
+}
+
+input[type=file] {
+    margin-right: 1rem;
+}
+
+input[type=file]::file-selector-button {
+    margin-right: 1rem;
 }
 
 .button:hover {
