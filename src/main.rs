@@ -9,7 +9,8 @@ use axum::{
     Router,
 };
 use chrono::{DateTime, Utc};
-use server::serve_static;
+use include_dir::{include_dir, Dir};
+use server::{serve_static, static_response};
 use std::{
     collections::HashMap,
     fs::{create_dir_all, read_dir},
@@ -20,7 +21,7 @@ use tokio::{fs::File, io::AsyncWriteExt};
 use utils::{generate_hash, humanize_bytes};
 
 static FILESDIR: &str = "files";
-static STATICDIR: &str = "static";
+static STATIC: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/static");
 static SIZELIMIT: usize = 100;
 static DELIMITER: &str = "_";
 static DATE_FORMAT: &str = "%d.%m.%Y, %H:%M";
@@ -137,6 +138,13 @@ async fn get_file(Path(name): Path<String>) -> impl IntoResponse {
 }
 
 async fn get_static(Path(name): Path<String>) -> impl IntoResponse {
-    let file_path = format!("{}/{}", STATICDIR, name);
-    serve_static(file_path).await
+    let file = STATIC.get_file(&name);
+    let mime_type = mime_guess::from_path(&name).first_or_text_plain();
+
+    return if let Some(file) = file {
+        static_response(mime_type, Some(file.contents().to_vec()))
+    } else {
+        static_response(mime_type, None)
+    }
+    .await;
 }
