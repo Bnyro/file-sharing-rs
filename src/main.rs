@@ -63,7 +63,13 @@ async fn get_files() -> Html<String> {
         let name = file.file_name();
         let lossy_name = name.to_string_lossy();
         let file_path = lossy_name.split_once(DELIMITER).unwrap();
-        html += format!("<li><a href=\"{}\">{}</a></li>", file_path.0, file_path.1).as_str();
+        let metadata = file.metadata().unwrap();
+        let file_size = humanize_bytes(metadata.len() as f64);
+        html += format!(
+            "<li><a href=\"{}\">{} ({})</a></li>",
+            file_path.0, file_path.1, file_size
+        )
+        .as_str();
     });
 
     Html(parse_template(&html, "All files", HashMap::new()))

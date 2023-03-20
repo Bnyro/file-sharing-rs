@@ -36,6 +36,10 @@ a:hover {
     text-decoration: underline;
 }
 
+li {
+    color: var(--accent);
+}
+
 #file {
     border-radius: 1rem;
     background-color: var(--surface);
