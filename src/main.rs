@@ -17,7 +17,10 @@ use std::{
     net::SocketAddr,
 };
 use template::{get_template, parse_template};
-use tokio::{fs::File, io::AsyncWriteExt};
+use tokio::{
+    fs::{remove_file, File},
+    io::AsyncWriteExt,
+};
 use utils::{generate_hash, humanize_bytes};
 
 static FILESDIR: &str = "files";
@@ -37,6 +40,7 @@ async fn main() {
         .route("/upload", post(upload))
         .route("/:hash", get(get_upload))
         .route("/files/:name", get(get_file))
+        .route("/delete/:name", get(delete_file))
         .layer(DefaultBodyLimit::max(SIZELIMIT * 1024 * 1024));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
@@ -143,6 +147,11 @@ async fn get_upload(Path(hash): Path<String>) -> Html<String> {
         "Not found",
         HashMap::new(),
     ));
+}
+
+async fn delete_file(Path(name): Path<String>) -> Redirect {
+    let _ = remove_file(format!("{}/{}", FILESDIR, name)).await;
+    return Redirect::permanent("/");
 }
 
 async fn get_file(Path(name): Path<String>) -> impl IntoResponse {
