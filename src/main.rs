@@ -8,6 +8,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use chrono::{DateTime, Utc};
 use server::serve_static;
 use std::{
     collections::HashMap,
@@ -16,12 +17,13 @@ use std::{
 };
 use template::parse_template;
 use tokio::{fs::File, io::AsyncWriteExt};
-use utils::generate_hash;
+use utils::{generate_hash, humanize_bytes};
 
 static FILESDIR: &str = "files";
 static STATICDIR: &str = "static";
 static SIZELIMIT: usize = 100;
 static DELIMITER: &str = "_";
+static DATE_FORMAT: &str = "%d.%m.%Y, %H:%M";
 
 #[tokio::main]
 async fn main() {
@@ -101,6 +103,13 @@ async fn get_upload(Path(hash): Path<String>) -> Html<String> {
         let mut arguments: HashMap<&str, &str> = HashMap::new();
         arguments.insert("path", file_name.as_str());
         arguments.insert("name", file_name.split_once(DELIMITER).unwrap().1);
+        let metadata = file.metadata().unwrap();
+        let file_size = humanize_bytes(metadata.len() as f64);
+        arguments.insert("size", &file_size);
+        let date = metadata.created().unwrap();
+        let datetime: DateTime<Utc> = date.into();
+        let formatted = datetime.format(DATE_FORMAT).to_string();
+        arguments.insert("date", &formatted);
 
         return Html(parse_template(
             include_str!("../templates/file.html"),

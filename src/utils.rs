@@ -13,7 +13,7 @@ pub fn generate_hash(len: usize) -> String {
 pub fn humanize_bytes(num: f64) -> String {
     let negative = if num.is_sign_positive() { "" } else { "-" };
     let num = num.abs();
-    let units = ["B", "kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
+    let units = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
     if num < 1_f64 {
         return format!("{}{} {}", negative, num, "B");
     }

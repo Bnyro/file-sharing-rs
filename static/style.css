@@ -5,6 +5,7 @@
 :root {
     --bg: #262335;
     --fg: #ffffff80;
+    --surface: #37294d99;
     --accent: #f97e72;
 }
 
@@ -12,4 +13,45 @@ html {
     font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
     background-color: var(--bg);
     color: var(--fg);
+}
+
+body {
+    width: 100vw;
+    max-width: 100%;
+    min-height: 95vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+a {
+    text-decoration: none;
+    color: var(--accent);
+    padding: 0.5rem 1rem;
+    border-radius: 1rem;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+#file {
+    border-radius: 1rem;
+    background-color: var(--surface);
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+#download {
+    margin-top: 0.6rem;
+    border: 2px solid var(--accent);
+}
+
+#download:hover {
+    text-decoration: none;
 }
