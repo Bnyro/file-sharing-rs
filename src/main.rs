@@ -58,17 +58,14 @@ async fn get_files() -> Html<String> {
     let files = read_dir(FILESDIR).expect("Unable to read directory!");
     let mut html: String = String::from("");
 
-    files.for_each(|file| {
-        html += file
-            .unwrap()
-            .file_name()
-            .to_string_lossy()
-            .to_string()
-            .as_str();
-        html += "<br />";
+    files.filter_map(|f| f.ok()).for_each(|file| {
+        let name = file.file_name();
+        let lossy_name = name.to_string_lossy();
+        let file_path = lossy_name.split_once(DELIMITER).unwrap();
+        html += format!("<li><a href=\"{}\">{}</a></li>", file_path.0, file_path.1).as_str();
     });
 
-    Html(html)
+    Html(parse_template(&html, "All files", HashMap::new()))
 }
 
 async fn upload(mut multipart: Multipart) -> Redirect {
