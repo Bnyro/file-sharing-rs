@@ -1,5 +1,6 @@
 * {
     box-sizing: border-box;
+    flex-wrap: wrap;
 }
 
 :root {
@@ -40,7 +41,7 @@ li {
     color: var(--accent);
 }
 
-#file {
+.container {
     border-radius: 1rem;
     background-color: var(--surface);
     padding: 2rem;
@@ -51,11 +52,19 @@ li {
     gap: 0.4rem;
 }
 
-#download {
-    margin-top: 0.6rem;
+.container .button {
+     margin-top: 0.6rem;
+}
+
+.button {
     border: 2px solid var(--accent);
 }
 
-#download:hover {
+.button:hover {
     text-decoration: none;
+}
+
+#buttons {
+    display: flex;
+    gap: 0.5rem;
 }

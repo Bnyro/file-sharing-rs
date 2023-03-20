@@ -16,7 +16,7 @@ use std::{
     fs::{create_dir_all, read_dir},
     net::SocketAddr,
 };
-use template::parse_template;
+use template::{get_template, parse_template};
 use tokio::{fs::File, io::AsyncWriteExt};
 use utils::{generate_hash, humanize_bytes};
 
@@ -50,7 +50,7 @@ async fn main() {
 // basic handler that responds with a static string
 async fn root() -> Html<String> {
     Html(parse_template(
-        include_str!("../templates/home.html"),
+        get_template("home.html"),
         "File sharing with ease",
         HashMap::new(),
     ))
@@ -76,21 +76,34 @@ async fn get_files() -> Html<String> {
     Html(parse_template(&html, "All files", HashMap::new()))
 }
 
-async fn upload(mut multipart: Multipart) -> Redirect {
+async fn upload(mut multipart: Multipart) -> impl IntoResponse {
     while let Some(field) = multipart.next_field().await.unwrap() {
         let file_name = field.file_name().unwrap().to_string();
         let data = field.bytes().await.unwrap();
+        let file_size = humanize_bytes(data.len() as f64);
 
         let hash = generate_hash(16);
-        let hashed_name = format!("{}/{}{}{}", FILESDIR, hash, DELIMITER, file_name);
+        let hashed_name = format!("{}{}{}", hash, DELIMITER, file_name);
 
-        let mut file = File::create(hashed_name)
+        let mut file = File::create(format!("{}/{}", FILESDIR, hashed_name))
             .await
             .expect("No permissions to create files!");
         let _ = file.write_all(&data).await;
-        return Redirect::permanent(&hash);
+
+        let mut arguments: HashMap<&str, &str> = HashMap::new();
+        arguments.insert("name", file_name.as_str());
+        arguments.insert("path", hashed_name.as_str());
+        arguments.insert("hash", hash.as_str());
+        arguments.insert("size", file_size.as_str());
+
+        return Html(parse_template(
+            get_template("uploaded.html"),
+            "Upload done",
+            arguments,
+        ))
+        .into_response();
     }
-    return Redirect::permanent("/");
+    return Redirect::permanent("/").into_response();
 }
 
 async fn get_upload(Path(hash): Path<String>) -> Html<String> {
@@ -119,14 +132,14 @@ async fn get_upload(Path(hash): Path<String>) -> Html<String> {
         arguments.insert("date", &formatted);
 
         return Html(parse_template(
-            include_str!("../templates/file.html"),
+            get_template("file.html"),
             arguments.get("name").unwrap(),
             arguments,
         ));
     }
 
     return Html(parse_template(
-        include_str!("../templates/notfound.html"),
+        get_template("notfound.html"),
         "Not found",
         HashMap::new(),
     ));
