@@ -1,0 +1,15 @@
+* {
+    box-sizing: border-box;
+}
+
+:root {
+    --bg: #262335;
+    --fg: #ffffff80;
+    --accent: #f97e72;
+}
+
+html {
+    font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+    background-color: var(--bg);
+    color: var(--fg);
+}

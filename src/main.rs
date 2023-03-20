@@ -1,23 +1,28 @@
+pub mod server;
+pub mod template;
+pub mod utils;
+
 use axum::{
-    body::{self, Empty, Full},
-    extract::{Multipart, Path},
-    http::{header, HeaderValue, StatusCode},
-    response::{Html, IntoResponse, Redirect, Response},
+    extract::{DefaultBodyLimit, Multipart, Path},
+    response::{Html, IntoResponse, Redirect},
     routing::{get, post},
     Router,
 };
-use rand::Rng;
+use server::serve_static;
 use std::{
-    fs::{create_dir_all, read_dir, File},
-    io::{Read, Write},
-    iter,
+    collections::HashMap,
+    fs::{create_dir_all, read_dir},
     net::SocketAddr,
     path::PathBuf,
 };
+use template::parse_template;
+use tokio::{fs::File, io::AsyncWriteExt};
+use utils::generate_hash;
 
 static FILESDIR: &str = "files";
-static SIZELIMIT: u32 = 100;
-const CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
+static STATICDIR: &str = "static";
+static SIZELIMIT: usize = 100;
+static DELIMITER: &str = "_";
 
 #[tokio::main]
 async fn main() {
@@ -25,10 +30,12 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(root))
+        .route("/static/:name", get(get_static))
         .route("/all", get(get_files))
         .route("/upload", post(upload))
         .route("/:hash", get(get_upload))
-        .route("/files/:name", get(get_file));
+        .route("/files/:name", get(get_file))
+        .layer(DefaultBodyLimit::max(SIZELIMIT * 1024 * 1024));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     println!("Listening on http://{}", addr);
@@ -39,8 +46,12 @@ async fn main() {
 }
 
 // basic handler that responds with a static string
-async fn root() -> Html<&'static str> {
-    Html(include_str!("../templates/home.html"))
+async fn root() -> Html<String> {
+    Html(parse_template(
+        include_str!("../templates/home.html"),
+        "File sharing with ease",
+        HashMap::new(),
+    ))
 }
 
 async fn get_files() -> Html<String> {
@@ -65,15 +76,13 @@ async fn upload(mut multipart: Multipart) -> Redirect {
         let file_name = field.file_name().unwrap().to_string();
         let data = field.bytes().await.unwrap();
 
-        if data.len() > (SIZELIMIT * 1024).try_into().unwrap() {
-            return Redirect::temporary("/");
-        }
+        let hash = generate_hash(16);
+        let hashed_name = format!("{}/{}{}{}", FILESDIR, hash, DELIMITER, file_name);
 
-        let hash = generate_hash(10);
-        let hashed_name = format!("{}/{}_{}", FILESDIR, hash, file_name);
-
-        let mut file = File::create(hashed_name).expect("No permissions to create files!");
-        let _ = file.write_all(&data);
+        let mut file = File::create(hashed_name)
+            .await
+            .expect("No permissions to create files!");
+        let _ = file.write_all(&data).await;
         return Redirect::permanent(&hash);
     }
     return Redirect::permanent("/");
@@ -82,16 +91,16 @@ async fn upload(mut multipart: Multipart) -> Redirect {
 async fn get_upload(Path(hash): Path<String>) -> Html<String> {
     let files = read_dir(FILESDIR).expect("Unable to read directory!");
 
-    let mut file_name: Option<String> = None;
+    let mut file_name: String = String::from("");
     let mut file: Option<PathBuf> = None;
 
     for f in files {
         if let Ok(f) = f {
             let name = f.file_name();
             let curr_file_name = name.to_str().unwrap();
-            let file_name_parts = curr_file_name.split_once("_").unwrap();
+            let file_name_parts = curr_file_name.split_once(DELIMITER).unwrap();
             if file_name_parts.0 == hash {
-                file_name = Some(curr_file_name.to_string());
+                file_name = curr_file_name.to_string();
                 file = Some(f.path());
                 break;
             }
@@ -99,44 +108,30 @@ async fn get_upload(Path(hash): Path<String>) -> Html<String> {
     }
 
     if file.is_none() {
-        return Html(include_str!("../templates/notfound.html").to_string());
+        return Html(parse_template(
+            include_str!("../templates/notfound.html"),
+            "Not found",
+            HashMap::new(),
+        ));
     }
 
-    Html(
-        include_str!("../templates/file.html")
-            .replace("{{path}}", file_name.clone().unwrap().as_str())
-            .replace("{{name}}", file_name.unwrap().split_once("_").unwrap().1)
-            .to_string(),
-    )
+    let mut arguments: HashMap<&str, &str> = HashMap::new();
+    arguments.insert("path", file_name.as_str());
+    arguments.insert("name", file_name.split_once(DELIMITER).unwrap().1);
+
+    Html(parse_template(
+        include_str!("../templates/file.html"),
+        arguments.get("name").unwrap(),
+        arguments,
+    ))
 }
 
 async fn get_file(Path(name): Path<String>) -> impl IntoResponse {
-    let mime_type = mime_guess::from_path(name.clone()).first_or_text_plain();
-
     let file_path = format!("{}/{}", FILESDIR, name);
-
-    return if let Ok(mut file) = File::open(file_path) {
-        let mut response_bytes: Vec<u8> = vec![];
-        file.read_to_end(&mut response_bytes)
-            .expect("Can't read file!");
-        Response::builder()
-            .status(StatusCode::OK)
-            .header(
-                header::CONTENT_TYPE,
-                HeaderValue::from_str(mime_type.as_ref()).unwrap(),
-            )
-            .body(body::boxed(Full::from(response_bytes)))
-            .unwrap()
-    } else {
-        Response::builder()
-            .status(StatusCode::NOT_FOUND)
-            .body(body::boxed(Empty::new()))
-            .unwrap()
-    };
+    serve_static(file_path).await
 }
 
-fn generate_hash(len: usize) -> String {
-    let mut rng = rand::thread_rng();
-    let one_char = || CHARSET[rng.gen_range(0..CHARSET.len())] as char;
-    iter::repeat_with(one_char).take(len).collect()
+async fn get_static(Path(name): Path<String>) -> impl IntoResponse {
+    let file_path = format!("{}/{}", STATICDIR, name);
+    serve_static(file_path).await
 }
